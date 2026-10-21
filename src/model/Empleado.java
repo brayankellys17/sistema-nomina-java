@@ -1,42 +1,49 @@
 package model;
 
 public class Empleado {
-    private int id;
     private String nombre;
-    private double sueldoBase;
-    private double horasTrabajadas;
+    private String cedula;
+    private String cargo;
+    private double salarioBase;
     private double horasExtras;
+    private double bonos;
+    private boolean seguro;
 
-    public Empleado() {
-    }
+    public Empleado() {}
 
-    public Empleado(int id, String nombre, double sueldoBase, double horasTrabajadas, double horasExtras) {
-        this.id = id;
+    public Empleado(String nombre, String cedula, String cargo, double salarioBase, double horasExtras, double bonos, boolean seguro) {
         this.nombre = nombre;
-        this.sueldoBase = sueldoBase;
-        this.horasTrabajadas = horasTrabajadas;
+        this.cedula = cedula;
+        this.cargo = cargo;
+        this.salarioBase = salarioBase;
         this.horasExtras = horasExtras;
+        this.bonos = bonos;
+        this.seguro = seguro;
     }
 
-    public int getId() { return id; }
+    // Getters y Setters
     public String getNombre() { return nombre; }
-    public double getSueldoBase() { return sueldoBase; }
-    public double getHorasTrabajadas() { return horasTrabajadas; }
-    public double getHorasExtras() { return horasExtras; }
-
-    public void setId(int id) { this.id = id; }
     public void setNombre(String nombre) { this.nombre = nombre; }
-    public void setSueldoBase(double sueldoBase) { this.sueldoBase = sueldoBase; }
-    public void setHorasTrabajadas(double horasTrabajadas) { this.horasTrabajadas = horasTrabajadas; }
+
+    public String getCedula() { return cedula; }
+    public void setCedula(String cedula) { this.cedula = cedula; }
+
+    public String getCargo() { return cargo; }
+    public void setCargo(String cargo) { this.cargo = cargo; }
+
+    public double getSalarioBase() { return salarioBase; }
+    public void setSalarioBase(double salarioBase) { this.salarioBase = salarioBase; }
+
+    public double getHorasExtras() { return horasExtras; }
     public void setHorasExtras(double horasExtras) { this.horasExtras = horasExtras; }
 
-    public String aTexto() {
-        return id + "|" + nombre + "|" + sueldoBase + "|" + horasTrabajadas + "|" + horasExtras;
-    }
+    public double getBonos() { return bonos; }
+    public void setBonos(double bonos) { this.bonos = bonos; }
 
-    @Override
-    public String toString() {
-        return "Empleado [id=" + id + ", nombre=" + nombre + ", sueldoBase=" + sueldoBase 
-                + ", horasTrabajadas=" + horasTrabajadas + ", horasExtras=" + horasExtras + "]";
+    public boolean isSeguro() { return seguro; }
+    public void setSeguro(boolean seguro) { this.seguro = seguro; }
+
+    public String aTextoCSV() {
+        return String.join(";", nombre, cedula, cargo, String.valueOf(salarioBase), String.valueOf(horasExtras), String.valueOf(bonos), String.valueOf(seguro));
     }
 }
