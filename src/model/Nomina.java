@@ -1,37 +1,31 @@
 package model;
 
 public class Nomina {
-
-    private int id;
     private Empleado empleado;
-    private double bonificaciones;
-    private double deducciones;
 
-    public Nomina(int id, Empleado empleado, double bonificaciones, double deducciones) {
-        this.id = id;
+    public Nomina(Empleado empleado) {
         this.empleado = empleado;
-        this.bonificaciones = bonificaciones;
-        this.deducciones = deducciones;
     }
+
     public double calcularPagoHorasExtras() {
-        if (empleado.getHorasTrabajadas() == 0) {
-            return 0;
-        }
-        double valorHora = empleado.getSueldoBase() / empleado.getHorasTrabajadas();
-        return valorHora * 1.5 * empleado.getHorasExtras();
+        if (empleado.getHorasExtras() == 0) return 0;
+        // 190.64 horas laborables al mes con recargo del 35% (1.35)
+        double valorHora = empleado.getSalarioBase() / 190.64;
+        return valorHora * 1.35 * empleado.getHorasExtras();
     }
+
     public double calcularSalarioBruto() {
-        return empleado.getSueldoBase() + calcularPagoHorasExtras() + bonificaciones;
+        return empleado.getSalarioBase() + calcularPagoHorasExtras() + empleado.getBonos();
     }
+
+    public double calcularDeducciones() {
+        // TSS (SFS 3.04% + AFP 2.87% = 5.91%)
+        return empleado.isSeguro() ? calcularSalarioBruto() * 0.0591 : 0;
+    }
+
     public double calcularSalarioNeto() {
-        return calcularSalarioBruto() - deducciones;
+        return calcularSalarioBruto() - calcularDeducciones();
     }
-    @Override
-    public String toString() {
-        return "Nomina [id=" + id
-                + ", empleado=" + empleado.getNombre()
-                + ", bonificaciones=" + bonificaciones
-                + ", deducciones=" + deducciones
-                + ", salarioNeto=" + calcularSalarioNeto() + "]";
-    }
+
+    public Empleado getEmpleado() { return empleado; }
 }
