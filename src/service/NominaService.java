@@ -2,59 +2,76 @@ package service;
 
 import model.Empleado;
 import model.Nomina;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class NominaService {
-    private List<Nomina> listaNominas;
+    private static final Path DB = Paths.get("empleados.csv");
+    private List<Empleado> empleados;
 
     public NominaService() {
-        this.listaNominas = new ArrayList<>();
+        this.empleados = new ArrayList<>();
+        cargarDesdeArchivo();
     }
 
-    // Agregar una nómina (que ya contiene al empleado y sus bonificaciones/deducciones)
-    public void agregarNomina(Nomina nomina) {
-        listaNominas.add(nomina);
+    public void agregarEmpleado(Empleado emp) {
+        empleados.add(emp);
+        guardarEnArchivo();
     }
 
-    // Obtener la lista completa de nóminas procesadas
-    public List<Nomina> obtenerNominas() {
-        return listaNominas;
+    public void eliminarEmpleadoPorCedula(String cedula) {
+        empleados.removeIf(e -> e.getCedula().equals(cedula));
+        guardarEnArchivo();
     }
 
-    // Buscar una nómina por el ID del empleado
-    public Nomina buscarNominaPorIdEmpleado(int idEmpleado) {
-        for (Nomina n : listaNominas) {
-            if (n.getEmpleado().getId() == idEmpleado) {
-                return n;
+    public List<Empleado> getEmpleados() {
+        return empleados;
+    }
+
+    public void guardarEnArchivo() {
+        try {
+            List<String> lineas = new ArrayList<>();
+            for (Empleado e : empleados) {
+                lineas.add(e.aTextoCSV());
             }
+            Files.write(DB, lineas, StandardCharsets.UTF_8);
+        } catch (IOException x) {
+            System.err.println("Error al guardar la base de datos: " + x.getMessage());
         }
-        return null; // Retorna nulo si no lo encuentra
     }
 
-    // Calcular las deducciones de ley estándar (TSS: AFP 2.87% + SFS 3.04%) sobre un salario bruto dado
-    public double calcularTSS(double salarioBruto) {
-        double afp = salarioBruto * 0.0287;
-        double sfs = salarioBruto * 0.0304;
-        return afp + sfs;
+    public void cargarDesdeArchivo() {
+        try {
+            if (Files.exists(DB)) {
+                empleados.clear();
+                for (String s : Files.readAllLines(DB, StandardCharsets.UTF_8)) {
+                    String[] p = s.split(";", -1);
+                    if (p.length == 7) {
+                        Empleado e = new Empleado(
+                            p[0], p[1], p[2],
+                            Double.parseDouble(p[3]),
+                            Double.parseDouble(p[4]),
+                            Double.parseDouble(p[5]),
+                            Boolean.parseBoolean(p[6])
+                        );
+                        empleados.add(e);
+                    }
+                }
+            }
+        } catch (IOException x) {
+            System.err.println("Error al cargar la base de datos.");
+        }
     }
 
-    // Cálculo estimado de la retención del ISR mensual según las escalas de la DGII
-    public double calcularISR(double salarioBruto) {
-        double tss = calcularTSS(salarioBruto);
-        double sueldoImponibleMensual = salarioBruto - tss;
-        double sueldoAnual = sueldoImponibleMensual * 12;
-        
-        double impuestoAnual = 0;
-        // Escalas estándar de referencia DGII
-        if (sueldoAnual > 416220.01 && sueldoAnual <= 624329.00) {
-            impuestoAnual = (sueldoAnual - 416220.01) * 0.15;
-        } else if (sueldoAnual > 624329.00 && sueldoAnual <= 867123.00) {
-            impuestoAnual = 31216.00 + ((sueldoAnual - 624329.00) * 0.20);
-        } else if (sueldoAnual > 867123.00) {
-            impuestoAnual = 79776.00 + ((sueldoAnual - 867123.00) * 0.25);
+    public double calcularTotalNominaGeneral() {
+        double total = 0;
+        for (Empleado e : empleados) {
+            Nomina nom = new Nomina(e);
+            total += nom.calcularSalarioNeto();
         }
-        
-        return impuestoAnual / 12; // Retención mensual proporcional
+        return total;
     }
 }
