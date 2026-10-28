@@ -2,76 +2,138 @@ package service;
 
 import model.Empleado;
 import model.Nomina;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import utils.ConexionBD;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import javax.swing.JOptionPane;
 
 public class NominaService {
-    private static final Path DB = Paths.get("empleados.csv");
-    private List<Empleado> empleados;
+
+    private static final int ID_DEPARTAMENTO = 1;
+
+    private final List<Empleado> empleados = new ArrayList<>();
 
     public NominaService() {
-        this.empleados = new ArrayList<>();
-        cargarDesdeArchivo();
+        cargarDesdeBaseDatos();
+    }
+
+    private void cargarDesdeBaseDatos() {
+        String sql = "SELECT Nombre, Cedula, Cargo, Salario_Base, "
+                   + "Horas_Extras, Bonos, Seguro FROM Empleados";
+
+        try (Connection con = ConexionBD.conectar();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            empleados.clear();
+
+            while (rs.next()) {
+                Empleado emp = new Empleado(
+                    rs.getString("Nombre"),
+                    rs.getString("Cedula"),
+                    rs.getString("Cargo"),
+                    rs.getDouble("Salario_Base"),
+                    rs.getDouble("Horas_Extras"),
+                    rs.getDouble("Bonos"),
+                    rs.getDouble("Seguro") > 0
+                );
+
+                empleados.add(emp);
+            }
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(
+                null,
+                "No se pudieron cargar los empleados desde Azure SQL.\n"
+                + e.getMessage(),
+                "Error de conexión",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 
     public void agregarEmpleado(Empleado emp) {
-        empleados.add(emp);
-        guardarEnArchivo();
+        String sql = "INSERT INTO Empleados "
+                   + "(Id_Departamento, Nombre, Cedula, Cargo, "
+                   + "Salario_Base, Horas_Extras, Bonos, Seguro) "
+                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+        try (Connection con = ConexionBD.conectar();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, ID_DEPARTAMENTO);
+            ps.setString(2, emp.getNombre());
+            ps.setString(3, emp.getCedula());
+            ps.setString(4, emp.getCargo());
+            ps.setBigDecimal(5,
+                java.math.BigDecimal.valueOf(emp.getSalarioBase()));
+            ps.setBigDecimal(6,
+                java.math.BigDecimal.valueOf(emp.getHorasExtras()));
+            ps.setBigDecimal(7,
+                java.math.BigDecimal.valueOf(emp.getBonos()));
+
+            Nomina nomina = new Nomina(emp);
+            ps.setBigDecimal(8,
+                java.math.BigDecimal.valueOf(nomina.calcularDeducciones()));
+
+            ps.executeUpdate();
+            empleados.add(emp);
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(
+                null,
+                "No se pudo registrar el empleado en Azure SQL.\n"
+                + e.getMessage(),
+                "Error al registrar",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 
     public void eliminarEmpleadoPorCedula(String cedula) {
-        empleados.removeIf(e -> e.getCedula().equals(cedula));
-        guardarEnArchivo();
+        String sql = "DELETE FROM Empleados WHERE Cedula = ?";
+
+        try (Connection con = ConexionBD.conectar();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, cedula);
+            int filasEliminadas = ps.executeUpdate();
+
+            if (filasEliminadas > 0) {
+                empleados.removeIf(
+                    e -> Objects.equals(e.getCedula(), cedula)
+                );
+            }
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(
+                null,
+                "No se pudo eliminar el empleado de Azure SQL.\n"
+                + e.getMessage(),
+                "Error al eliminar",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 
     public List<Empleado> getEmpleados() {
         return empleados;
     }
 
-    public void guardarEnArchivo() {
-        try {
-            List<String> lineas = new ArrayList<>();
-            for (Empleado e : empleados) {
-                lineas.add(e.aTextoCSV());
-            }
-            Files.write(DB, lineas, StandardCharsets.UTF_8);
-        } catch (IOException x) {
-            System.err.println("Error al guardar la base de datos: " + x.getMessage());
-        }
-    }
-
-    public void cargarDesdeArchivo() {
-        try {
-            if (Files.exists(DB)) {
-                empleados.clear();
-                for (String s : Files.readAllLines(DB, StandardCharsets.UTF_8)) {
-                    String[] p = s.split(";", -1);
-                    if (p.length == 7) {
-                        Empleado e = new Empleado(
-                            p[0], p[1], p[2],
-                            Double.parseDouble(p[3]),
-                            Double.parseDouble(p[4]),
-                            Double.parseDouble(p[5]),
-                            Boolean.parseBoolean(p[6])
-                        );
-                        empleados.add(e);
-                    }
-                }
-            }
-        } catch (IOException x) {
-            System.err.println("Error al cargar la base de datos.");
-        }
-    }
-
     public double calcularTotalNominaGeneral() {
         double total = 0;
-        for (Empleado e : empleados) {
-            Nomina nom = new Nomina(e);
-            total += nom.calcularSalarioNeto();
+
+        for (Empleado emp : empleados) {
+            Nomina nomina = new Nomina(emp);
+            total += nomina.calcularSalarioNeto();
         }
+
         return total;
     }
 }
